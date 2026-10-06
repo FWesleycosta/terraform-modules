@@ -25,3 +25,4 @@ terraform.rc
 
 # Sistema operacional
 .DS_Store
+docs/portal.html

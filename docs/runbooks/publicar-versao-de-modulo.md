@@ -7,8 +7,8 @@
 
 - **Quem executa:** só o responsável pelo repositório (@FWesleycosta) cria tags e releases.
 - **Acessos necessários:**
-  - permissão de escrita no repositório;
-  - GitHub CLI (`gh`) autenticado numa conta com acesso ao repositório, que é privado;
+  - permissão de escrita no repositório. Ele é público, então qualquer pessoa lê e clona, mas criar tag e release exige escrita;
+  - GitHub CLI (`gh`) autenticado numa conta com essa permissão de escrita;
   - Git configurado para assinar tags (`tag.gpgSign`). As tags publicadas até hoje são anotadas e assinadas com chave SSH.
 - **Impacto esperado:** nenhum sobre quem já consome o módulo. Cada consumidor fixa uma tag no `?ref=` e só recebe a versão nova quando trocar essa referência.
 - **Quando executar:** no mesmo dia do merge.
