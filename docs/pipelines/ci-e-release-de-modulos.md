@@ -11,9 +11,19 @@ São duas partes:
 
 Responsável pelo pipeline e pelo repositório: @FWesleycosta.
 
+## Quem participa da publicação de uma versão
+
+O diagrama abaixo é a visão para apresentação e onboarding, no formato C4 dinâmico: os mesmos elementos, descrições e cores do diagrama de [contêineres](../arquitetura/monorepo-de-modulos.md#contêineres-onde-ficam-os-módulos-e-o-que-executa), com as setas numeradas na ordem dos acontecimentos. No rótulo de cada seta, os colchetes trazem só a tecnologia, e o itálico marca a regra essencial do passo. As demais regras de cada passo estão no parágrafo logo abaixo. Ele mostra a publicação de uma versão. O consumo de uma versão está em [Como um consumidor usa uma versão de módulo](../arquitetura/monorepo-de-modulos.md#como-um-consumidor-usa-uma-versão-de-módulo), no documento de arquitetura. Os diagramas Mermaid das seções seguintes detalham a publicação e são a versão revisada por diff.
+
+O responsável abre o PR no Repositório Git (1), e o PR já traz o `CHANGELOG.md` do módulo e a linha dele no índice do README. O repositório dispara o workflow `ci` pelo evento `pull_request` (2). O workflow valida só os módulos alterados, ou todos se mudar a configuração compartilhada da raiz (`.tflint.hcl`, `.terraform-docs.yml` ou o próprio `ci.yml`), e reporta o check `ci-ok` (3), que o ruleset `exige-ci-ok` torna obrigatório. Observe a seta 4: o itálico "só com ci-ok verde" é a regra essencial da `main`. O merge por squash fica bloqueado enquanto o `ci-ok` não estiver verde. Além disso, a `main` só recebe mudanças por PR, com 0 aprovações e commits assinados, e o squash é o único método de merge habilitado. Depois do merge, no mesmo dia, o responsável cria à mão a tag anotada no commit do squash, com `git tag -a`, e a envia ao repositório com `git push` (5). Em seguida, publica a release no GitHub Releases com `gh release create --verify-tag` (6). Uma tag publicada nunca é apagada nem movida.
+
+![Diagrama C4 dinâmico da publicação de uma versão de módulo, em seis passos, com o responsável e os contêineres Repositório Git, Workflow ci e GitHub Releases dentro da fronteira do terraform-modules. 1: o responsável abre o PR no repositório, pelo GitHub. 2: o repositório dispara o workflow ci pelo evento pull_request. 3: o workflow reporta ao repositório o check ci-ok, pelo GitHub Checks. 4: o responsável faz o merge por squash, só com o ci-ok verde. 5: o responsável cria com git tag -a e envia ao repositório a tag modulo/vX.Y.Z. 6: o responsável publica a release no GitHub Releases com gh release create --verify-tag.](../diagramas/c4-dinamico-publicacao.drawio.png)
+
+A imagem é um PNG com a fonte do draw.io embutida. Para editar, abra o arquivo `.drawio.png` direto no draw.io e exporte de novo como PNG, com a opção de incluir uma cópia do diagrama.
+
 ## Do pull request à versão publicada
 
-O diagrama mostra o caminho de uma mudança num módulo até a versão publicada. Repare que a conferência do `ci-ok` antes do merge é manual: o merge com o CI vermelho é proibido por convenção, mas o repositório não tem proteção de branch e o GitHub não o bloqueia (veja [Gatilhos e aprovações](#gatilhos-e-aprovações)).
+O diagrama mostra o caminho de uma mudança num módulo até a versão publicada. Repare no losango do `ci-ok`. O ruleset `exige-ci-ok` torna esse check obrigatório, e o GitHub bloqueia o merge enquanto ele não estiver verde (veja [Gatilhos e aprovações](#gatilhos-e-aprovações)).
 
 ```mermaid
 ---
@@ -21,11 +31,11 @@ title: Do pull request à versão publicada
 ---
 flowchart LR
     accTitle: Fluxo do pull request à versão publicada de um módulo
-    accDescr: O pull request para a main dispara o CI, que detecta os módulos alterados, valida cada um numa matriz e consolida o resultado no ci-ok. Com o ci-ok verde, o PR entra na main por squash, e o responsável cria a tag do módulo e a release no GitHub.
+    accDescr: O pull request para a main dispara o CI, que detecta os módulos alterados, valida cada um numa matriz e consolida o resultado no ci-ok. O ruleset exige-ci-ok torna o ci-ok obrigatório: com ele vermelho, o GitHub bloqueia o merge e a correção volta para o PR. Com o ci-ok verde, o PR entra na main por squash, e o responsável cria a tag do módulo e a release no GitHub.
     pr["PR para a main"] --> detectar["Job detectar"]
     detectar --> matriz["Job modulo: matriz por módulo e versão do Terraform"]
     matriz --> ciok["Job ci-ok"]
-    ciok --> verde{"ci-ok verde? (conferência manual)"}
+    ciok --> verde{"ci-ok verde? (exigido pelo ruleset)"}
     verde -- não --> corrigir["Corrigir no PR"]
     corrigir --> pr
     verde -- sim --> squash["Squash na main"]
@@ -94,11 +104,12 @@ As mesmas verificações podem rodar na sua máquina. Os comandos estão em [Val
 - **`workflow_dispatch`** (linhas 7 a 12), disparado à mão na aba Actions. O input `todos` vem marcado por padrão e valida todos os módulos. Desmarcado, valida só os módulos alterados em relação à `origin/main`.
 - **Concorrência** (linhas 17 a 19): um push novo no mesmo PR cancela a execução anterior.
 
-> [!WARNING]
-> O merge com o `ci-ok` vermelho é proibido por convenção. Como o repositório é privado, numa conta gratuita, e não tem proteção de branch, o `ci-ok` não é check obrigatório e o GitHub não bloqueia o merge. Confira o `ci-ok` no PR antes de fazer o merge.
+> [!NOTE]
+> O repositório é público, e a `main` é protegida por dois rulesets ativos do GitHub (estado conferido via API em 06/10/2026). O `exige-ci-ok` torna o `ci-ok` obrigatório, e o GitHub bloqueia o merge enquanto ele não estiver verde. O `protege-main-develop` exige PR e commits assinados e bloqueia exclusão e force push. A tabela com as regras de cada ruleset está em [Proteção da `main`](../arquitetura/monorepo-de-modulos.md#proteção-da-main), no documento de arquitetura.
 
-- **Merge:** só o squash está habilitado no repositório, e cada PR vira um único commit na `main`. No histórico, a mensagem desse commit é o título do PR seguido do número, por exemplo `feat(aws_s3_bucket): ... (#4)`. Por isso o título do PR precisa seguir o padrão `tipo(<modulo>): ...`: é dele que sai o tipo de versão (veja o [runbook de release](../runbooks/publicar-versao-de-modulo.md)).
-- **Aprovação de PR:** sem proteção de branch, nenhuma aprovação é exigida.
+- **Merge:** o ruleset permite merge, squash e rebase, mas o repositório só tem o squash habilitado. Cada PR vira um único commit na `main`, criado e assinado pelo GitHub, o que atende à exigência de commits assinados. No histórico, a mensagem desse commit é o título do PR seguido do número, por exemplo `feat(aws_s3_bucket): ... (#4)`. Por isso o título do PR precisa seguir o padrão `tipo(<modulo>): ...`: é dele que sai o tipo de versão (veja o [runbook de release](../runbooks/publicar-versao-de-modulo.md)).
+- **Aprovação de PR:** o ruleset exige PR, mas com 0 aprovações, então o responsável faz o merge dos próprios PRs. As revisões antigas são descartadas a cada push novo no PR.
+- **PRs de forks:** o gatilho é `pull_request`, e não `pull_request_target` (linhas 4 a 6), e o token só tem permissão de leitura (linhas 14 e 15). Assim, o código vindo de um fork roda sem acesso a segredos e sem permissão de escrita. Além disso, o repositório está configurado com "Require approval for all external contributors": o workflow só roda num PR de quem não é membro do repositório depois que o responsável aprovar a execução no próprio PR.
 - **Tags e releases:** só o responsável cria. Não existe ruleset que proteja as tags.
 
 ### Limitação conhecida: `workflow_dispatch` na `main` com `todos` desmarcado
@@ -146,6 +157,12 @@ Nenhuma no momento.
 
 GITHUB. **Workflow syntax for GitHub Actions**. Disponível em: https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax. Acesso em: 6 out. 2026.
 
+GITHUB. **Available rules for rulesets**. Disponível em: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets. Acesso em: 6 out. 2026.
+
 GITHUB. **Dependabot options reference**. Disponível em: https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference. Acesso em: 6 out. 2026.
+
+GITHUB. **Events that trigger workflows**. Disponível em: https://docs.github.com/actions/reference/workflows-and-actions/events-that-trigger-workflows. Acesso em: 6 out. 2026.
+
+GITHUB. **Managing GitHub Actions settings for a repository**. Disponível em: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository. Acesso em: 6 out. 2026.
 
 PRESTON-WERNER, Tom. **Versionamento Semântico 2.0.0**. Disponível em: https://semver.org/lang/pt-BR/. Acesso em: 6 out. 2026.

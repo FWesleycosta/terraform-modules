@@ -8,47 +8,55 @@ Responsável pelo repositório: @FWesleycosta.
 
 ## Contexto: quem usa o monorepo e com o que ele se relaciona
 
-O diagrama mostra o monorepo como uma caixa só, com as pessoas e os sistemas em volta dele. Observe duas coisas. Primeiro, a AWS só se liga aos consumidores: o repositório e o CI nunca acessam uma conta de nuvem. Segundo, os consumidores ainda não existem; hoje, quem usa os módulos são os exemplos em `modules/<modulo>/examples/`.
+O diagrama mostra o monorepo como uma caixa só, com as pessoas e os sistemas em volta dele. O GitHub Actions e o GitHub Releases não aparecem aqui porque fazem parte do próprio monorepo: são o workflow `ci` e as releases, abertos no diagrama de contêineres. Observe duas coisas. Primeiro, a AWS só se liga aos consumidores: o monorepo, inclusive o CI, nunca acessa uma conta de nuvem. Segundo, os consumidores ainda não existem; hoje, quem usa os módulos são os exemplos em `modules/<modulo>/examples/`.
 
-![Diagrama C4 de contexto: o responsável abre PRs, faz o merge e cria as tags no monorepo terraform-modules e publica as releases no GitHub Releases. O GitHub Actions valida os módulos alterados em cada PR e baixa os providers do Terraform Registry. O Dependabot abre PRs semanais que atualizam as Actions. Os módulos raiz consumidores baixam o módulo pela tag, baixam os providers do Terraform Registry e criam os recursos na AWS.](../diagramas/c4-contexto.drawio.png)
+![Diagrama C4 de contexto do terraform-modules, com seis elementos. O responsável abre PRs, faz o merge, cria tags e releases no terraform-modules, por Git, GitHub e gh. O Dependabot, que atualiza toda semana os SHAs das GitHub Actions, abre PRs que atualizam as Actions, pelo GitHub. O terraform-modules baixa os providers do Terraform Registry ao validar cada PR, com terraform init -backend=false. Os módulos raiz consumidores baixam o módulo pela tag, por Git via SSH ou HTTPS, baixam os providers do Terraform Registry e criam os recursos na AWS. Nenhuma relação liga o terraform-modules à AWS.](../diagramas/c4-contexto.drawio.png)
 
 | Elemento | Papel | Evidência |
 |---|---|---|
 | Responsável | Mantém os módulos, faz o merge dos PRs e cria as tags e as releases | `README.md`, seção "Versionamento"; runbook [Publicar uma versão de módulo](../runbooks/publicar-versao-de-modulo.md) |
-| `terraform-modules` | Repositório público no GitHub (`FWesleycosta/terraform-modules`) com os módulos | `README.md`, linhas 17 e 18 |
-| GitHub Actions | Roda o workflow `ci` em todo PR para a `main`, num runner `ubuntu-24.04` | `.github/workflows/ci.yml`, linhas 3 a 7, 32, 106 e 201 |
+| `terraform-modules` | Repositório público no GitHub (`FWesleycosta/terraform-modules`) com os módulos. Valida cada PR no GitHub Actions e entrega versões de módulo; cada versão é uma tag com release | `README.md`, linhas 3, 18 e 27; `.github/workflows/ci.yml`, linhas 3 a 7 |
 | Dependabot | Abre toda semana um PR agrupado que atualiza os SHAs das GitHub Actions | `.github/dependabot.yml`, linhas 6 a 15 |
-| GitHub Releases | Guarda uma release por tag de módulo, com as notas do CHANGELOG | Runbook de release, seção "Publicação" |
-| Terraform Registry | Distribui os providers `hashicorp/aws`, usado pelos módulos, e `hashicorp/archive`, usado só pelos exemplos | `modules/*/versions.tf`; `modules/aws_lambda_layer_version/examples/*/versions.tf` |
+| Terraform Registry | Distribui os providers `hashicorp/aws`, usado pelos módulos, e `hashicorp/archive`, usado só pelos exemplos. O CI baixa os providers ao validar cada PR, e os consumidores, no `terraform init` | `modules/*/versions.tf`; `modules/aws_lambda_layer_version/examples/*/versions.tf`; `ci.yml`, linhas 136 e 144 |
 | Módulos raiz consumidores | Fixam um módulo por tag e configuram o provider. Ainda não existem | `README.md`, linhas 12 a 34 |
 | AWS | Onde os consumidores criam os buckets S3 e as Lambda layers. Nenhuma conta foi usada até agora | `modules/*/main.tf` |
 
-## Contêineres: as unidades dentro do monorepo
+## Contêineres: onde ficam os módulos e o que executa
 
-> [!NOTE]
-> No modelo C4, um contêiner é algo que precisa estar em execução para o sistema funcionar, e módulos de código normalmente não são contêineres. Como este repositório é uma biblioteca e nada nele roda, este documento adapta o conceito: aqui, contêiner é cada unidade versionada (um módulo) ou executável (o workflow de CI), mais os artefatos que essas unidades produzem ou leem.
+No modelo C4, um contêiner é algo que precisa estar em execução ou guardar dados para o sistema funcionar. Bibliotecas e módulos de código, inclusive módulos Terraform, não são contêineres: são organização do código (BROWN, Container). Por isso os módulos `aws_s3_bucket` e `aws_lambda_layer_version` não aparecem como caixas no diagrama. Eles são conteúdo do contêiner Repositório Git e estão listados na tabela [O que o repositório guarda](#o-que-o-repositório-guarda). O FAQ do C4 lembra que o modelo foi feito para sistemas de software, e não para descrever uma biblioteca (BROWN, FAQ). Aqui, o sistema é o monorepo com a sua automação. Os contêineres são onde os dados ficam (o repositório e as releases) e o que executa (o workflow de CI).
 
-O diagrama abre a caixa do monorepo. Observe que o CI valida cada módulo de forma independente, numa matriz, e que a única dependência entre módulos é a do exemplo `completo` da layer, que usa o módulo de bucket por caminho local. Os consumidores não enxergam a `main`: eles só chegam aos módulos pelas tags.
+O diagrama abre a caixa do monorepo e responde a duas perguntas: onde ficam os módulos e o que executa. Observe que só o workflow `ci` executa código, e só quando é disparado, por um PR ou à mão; o Repositório Git e o GitHub Releases guardam dados. Os consumidores chegam aos módulos pelo repositório, sempre numa tag.
 
-![Diagrama C4 de contêineres: dentro do monorepo terraform-modules ficam o workflow ci, a configuração compartilhada, as tags e releases por módulo, os módulos aws_s3_bucket e aws_lambda_layer_version e a pasta docs. O Dependabot abre PRs que atualizam o workflow. O workflow lê a configuração compartilhada e valida cada módulo alterado numa matriz com Terraform ~1.11.0 e latest. O exemplo completo de aws_lambda_layer_version usa aws_s3_bucket. O responsável cria as tags e as releases, e os consumidores fixam a versão no source pela tag.](../diagramas/c4-conteineres.drawio.png)
+![Diagrama C4 de contêineres do terraform-modules. Dentro da fronteira ficam três contêineres: o Repositório Git, que guarda os módulos, a configuração compartilhada do CI e as tags; o Workflow ci, no GitHub Actions com runner ubuntu-24.04; e o GitHub Releases. O responsável abre PRs, faz o merge por squash e envia as tags ao repositório, e publica a release de cada tag no GitHub Releases com gh release create --verify-tag. O Dependabot abre PRs no repositório que atualizam as Actions, pelo GitHub. O repositório dispara a validação no workflow ci pelo evento pull_request. O workflow baixa os providers do Terraform Registry ao validar cada PR, com terraform init -backend=false. Os módulos raiz consumidores baixam o módulo do repositório pela tag, por Git via SSH ou HTTPS.](../diagramas/c4-conteineres.drawio.png)
 
-As relações do diagrama e onde cada uma aparece no código:
+As relações do diagrama, com os detalhes e as regras que não cabem nos rótulos, e onde cada uma aparece no código:
 
-- **Dependabot → workflow `ci`:** PRs semanais com o prefixo `ci`, agrupados num só (`.github/dependabot.yml`, linhas 6 a 15). Como esses PRs alteram o `ci.yml`, eles fazem o CI validar todos os módulos (`ci.yml`, linha 67).
-- **Workflow `ci` → configuração compartilhada:** o TFLint roda com `--config "$GITHUB_WORKSPACE/.tflint.hcl"` (`ci.yml`, linhas 165 e 166), e o terraform-docs com `-c "$GITHUB_WORKSPACE/.terraform-docs.yml"` (linha 193). Mudar qualquer um desses arquivos, ou o próprio `ci.yml`, faz o CI validar todos os módulos (linha 67).
-- **Workflow `ci` → módulos:** o job `detectar` lista os módulos alterados (linhas 30 a 100) e o job `modulo` valida cada um com Terraform `~1.11.0` e `latest` (linhas 102 a 115). O job `ci-ok` consolida o resultado (linhas 195 a 212).
-- **`aws_lambda_layer_version` → `aws_s3_bucket`:** só o exemplo `completo` usa o bucket, com `source = "../../../aws_s3_bucket"` (`modules/aws_lambda_layer_version/examples/completo/main.tf`, linha 6). O módulo em si não depende de outro módulo.
-- **Responsável → tags e releases:** a tag é criada à mão na `main` depois do merge, e a release com `gh release create --verify-tag` (runbook de release, seção "Publicação").
-- **Consumidores → tags:** o `source` aponta para `//modules/<modulo>?ref=<modulo>/vX.Y.Z` (`README.md`, linhas 17 e 18).
+- **Responsável → Repositório Git:** abre os PRs, faz o merge por squash e envia as tags `<modulo>/vX.Y.Z` (`README.md`, linhas 48 a 50; runbook de release, seção "Publicação", passos 1 a 3).
+- **Responsável → GitHub Releases:** publica a release a partir da tag com `gh release create --verify-tag` (runbook de release, seção "Publicação", passo 5).
+- **Dependabot → Repositório Git:** PRs semanais com o prefixo `ci`, agrupados num só (`.github/dependabot.yml`, linhas 6 a 15). Como esses PRs alteram o `ci.yml`, eles fazem o CI validar todos os módulos (`ci.yml`, linha 67).
+- **Repositório Git → Workflow `ci`:** todo PR para a `main` dispara o workflow pelo evento `pull_request` (`ci.yml`, linhas 3 a 6), que também pode ser disparado à mão (`workflow_dispatch`, linhas 7 a 12). O job `detectar` lista os módulos alterados (linhas 30 a 100), o job `modulo` valida cada um com Terraform `~1.11.0` e `latest` (linhas 102 a 115) e o job `ci-ok` consolida o resultado (linhas 195 a 212). O TFLint e o terraform-docs leem a configuração compartilhada da raiz (linhas 165, 166 e 193).
+- **Workflow `ci` → Terraform Registry:** o `terraform init -backend=false` do módulo e dos exemplos baixa os providers (`ci.yml`, linhas 136 e 144).
+- **Módulos raiz consumidores → Repositório Git:** o `source` aponta para `//modules/<modulo>?ref=<modulo>/vX.Y.Z`, por SSH ou HTTPS (`README.md`, linhas 18 e 27).
 
-| Componente | Responsabilidade | Tecnologia | Onde está no código |
+| Contêiner | Responsabilidade | Tecnologia | Onde está no código |
 |---|---|---|---|
-| `aws_s3_bucket` | Bucket S3 seguro por padrão, com lifecycle opcional | Módulo Terraform, provider `hashicorp/aws` `>= 6.40` | `modules/aws_s3_bucket/` |
-| `aws_lambda_layer_version` | Versão de Lambda layer a partir de um pacote local (`filename`) ou no S3 (`s3_object`) | Módulo Terraform, provider `hashicorp/aws` `>= 6.0` | `modules/aws_lambda_layer_version/` |
-| Configuração compartilhada | Regras de lint e formato do README gerado, iguais para todos os módulos | TFLint (preset `recommended` e plugin AWS 0.49.0), terraform-docs | `.tflint.hcl`, `.terraform-docs.yml` |
-| Workflow `ci` | Valida os módulos alterados em cada PR e consolida o resultado no check `ci-ok` | GitHub Actions, Terraform, TFLint, Trivy, terraform-docs | `.github/workflows/ci.yml` |
-| Tags e releases por módulo | Marcam cada versão publicada. Uma tag publicada nunca é apagada nem movida | Git (tags anotadas), GitHub Releases | Tags `<modulo>/vX.Y.Z`; `modules/<modulo>/CHANGELOG.md` |
-| `docs/` | Arquitetura, pipeline e runbooks. O CI não valida esta pasta | Markdown, Mermaid, draw.io | `docs/` |
+| Repositório Git | Guarda os módulos, a configuração compartilhada do CI e as tags `<modulo>/vX.Y.Z`. A `main` só recebe mudanças por PR | Git, GitHub (repositório público) | Raiz do repositório; tags `<modulo>/vX.Y.Z` |
+| Workflow `ci` | Valida os módulos alterados em cada PR e consolida o resultado no check `ci-ok` | GitHub Actions (runner `ubuntu-24.04`), Terraform, TFLint, Trivy, terraform-docs | `.github/workflows/ci.yml` |
+| GitHub Releases | Guarda uma release por tag de módulo, com as notas da versão copiadas do `CHANGELOG.md` do módulo | GitHub Releases, criadas com `gh release create --verify-tag` | Fora do código, nas releases do repositório no GitHub. As notas saem de `modules/<modulo>/CHANGELOG.md` |
+
+### O que o repositório guarda
+
+Referência do conteúdo do contêiner Repositório Git.
+
+| Conteúdo | Para que serve | Tecnologia | Onde está |
+|---|---|---|---|
+| `aws_s3_bucket` | Módulo de bucket S3 seguro por padrão, com lifecycle opcional | Módulo Terraform, provider `hashicorp/aws` `>= 6.40` | `modules/aws_s3_bucket/` |
+| `aws_lambda_layer_version` | Módulo de versão de Lambda layer a partir de um pacote local (`filename`) ou no S3 (`s3_object`) | Módulo Terraform, provider `hashicorp/aws` `>= 6.0` | `modules/aws_lambda_layer_version/` |
+| Configuração compartilhada | Regras de lint e formato do README gerado, iguais para todos os módulos. Mudar um desses arquivos, ou o `ci.yml`, faz o CI validar todos os módulos | TFLint (preset `recommended` e plugin AWS 0.49.0), terraform-docs | `.tflint.hcl`, `.terraform-docs.yml` |
+| Tags por módulo | Marcam cada versão publicada. Uma tag publicada nunca é apagada nem movida | Git (tags anotadas) | Tags `<modulo>/vX.Y.Z`; `README.md`, linha 50 |
+| Documentação | Arquitetura, pipeline e runbooks. O CI não valida esta pasta | Markdown, Mermaid, draw.io | `docs/` |
+
+A única dependência entre módulos está num exemplo: o exemplo `completo` de `aws_lambda_layer_version` usa o módulo de bucket por caminho local, com `source = "../../../aws_s3_bucket"` (`modules/aws_lambda_layer_version/examples/completo/main.tf`, linha 6). O módulo em si não depende de outro módulo.
 
 Cada módulo segue a mesma estrutura: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`, `CHANGELOG.md`, `examples/` e `tests/` (`README.md`, seção "Como contribuir"). Os módulos não declaram blocos `provider`: região, credenciais e aliases são do consumidor. Também declaram os providers só com limite inferior, e quem fixa a versão exata no `.terraform.lock.hcl` é o módulo raiz que consome. Por isso o `.gitignore` não versiona lockfiles (`.gitignore`, linhas 8 a 10).
 
@@ -138,27 +146,22 @@ O repositório é público. A `main` é protegida por dois rulesets ativos do Gi
 Na prática:
 
 - Ninguém faz push direto na `main`: toda mudança entra por PR, e o GitHub bloqueia o merge enquanto o `ci-ok` não estiver verde.
-- O ruleset permite merge, squash e rebase, mas o repositório só tem o squash habilitado. Por isso, cada PR vira um único commit na `main`, com o título do PR como mensagem.
+- O ruleset permite merge, squash e rebase, mas o repositório só tem o squash habilitado (merge commit e rebase desligados nas configurações, conferido via API em 06/10/2026). Por isso, cada PR vira um único commit na `main`, com o título do PR como mensagem. Esse commit é criado e assinado pelo GitHub, o que atende à exigência de commits assinados. O PR #1 é anterior a essa configuração e entrou como merge commit.
 - Como nenhuma aprovação é exigida, o próprio responsável pode fazer o merge dos seus PRs.
 - O ruleset `protege-main-develop` também cobre `develop`, branch que não existe no fluxo trunk-based deste repositório. A regra não tem efeito enquanto essa branch não existir.
 - Os dois rulesets valem só para branches. As tags `<modulo>/vX.Y.Z` não têm proteção no GitHub: a regra de nunca apagar nem mover uma tag publicada é convenção (`README.md`, linha 50).
 
 ## Pendências
 
-Nenhum ponto `[A CONFIRMAR]` em aberto. Fica uma nota de manutenção, para uma tarefa à parte:
-
-> [!WARNING]
-> Três documentos ainda descrevem o estado anterior do repositório (privado e sem proteção de branch) e contradizem a seção [Proteção da `main`](#proteção-da-main):
->
-> - [CI e release dos módulos](../pipelines/ci-e-release-de-modulos.md): o parágrafo antes do primeiro diagrama, o losango "conferência manual" do diagrama, o aviso em "Gatilhos e aprovações" e o item "Aprovação de PR".
-> - [Publicar uma versão de módulo](../runbooks/publicar-versao-de-modulo.md): o item "Acessos necessários" diz que o repositório é privado.
-> - `README.md` da raiz, subseção "CI": diz que a `main` não tem proteção de branch e que o GitHub não bloqueia o merge com o `ci-ok` vermelho.
+Nenhuma pendência em aberto.
 
 ## Referências
 
 BROWN, Simon. **The C4 model for visualising software architecture**. Disponível em: https://c4model.com/. Acesso em: 6 out. 2026.
 
 BROWN, Simon. **Container | C4 model**. Disponível em: https://c4model.com/abstractions/container. Acesso em: 6 out. 2026.
+
+BROWN, Simon. **FAQ | C4 model**. Disponível em: https://c4model.com/faq. Acesso em: 6 out. 2026.
 
 GITHUB. **Available rules for rulesets**. Disponível em: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets. Acesso em: 6 out. 2026.
 
