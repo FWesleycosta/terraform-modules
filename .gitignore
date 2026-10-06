@@ -1,0 +1,27 @@
+# Diretórios locais do Terraform
+.terraform/
+
+# State: nunca versionar (pode conter segredos)
+*.tfstate
+*.tfstate.*
+
+# Lockfile: NÃO é versionado em módulos reutilizáveis.
+# Quem fixa as versões dos providers é o módulo raiz que consome o módulo.
+.terraform.lock.hcl
+
+# Logs de crash
+crash.log
+crash.*.log
+
+# Overrides locais
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Configuração local da CLI
+.terraformrc
+terraform.rc
+
+# Sistema operacional
+.DS_Store
