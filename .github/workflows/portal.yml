@@ -1,0 +1,42 @@
+# Publica o portal de documentação no GitHub Pages a cada merge na main que mude a documentação.
+# Usa a action FWesleycosta/portal-docs. Requer o Pages com origem "GitHub Actions".
+name: portal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "modules/*/README.md"
+      - ".github/workflows/portal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: FWesleycosta/portal-docs@5a17c118e54dfbee110eac7afe40f43cad53fe70 # v1.0.0
+        with:
+          incluir: |
+            modules/*/README.md
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _portal
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
