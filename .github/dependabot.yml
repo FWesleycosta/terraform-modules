@@ -1,0 +1,15 @@
+# Mantém atualizados os SHAs das GitHub Actions usadas no CI.
+# As versões das ferramentas fixadas em env no ci.yml (tflint, trivy,
+# terraform-docs) e o plugin no .tflint.hcl são atualizados manualmente.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - "*"

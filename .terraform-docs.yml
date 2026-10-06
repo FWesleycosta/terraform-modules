@@ -1,0 +1,36 @@
+# Configuração do terraform-docs compartilhada por todos os módulos.
+# Uso: terraform-docs -c .terraform-docs.yml modules/<nome>
+# Checagem (CI): terraform-docs -c .terraform-docs.yml --output-check modules/<nome>
+formatter: "markdown table"
+
+sections:
+  show:
+    - requirements
+    - providers
+    - modules
+    - resources
+    - inputs
+    - outputs
+
+output:
+  file: README.md
+  mode: inject
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+sort:
+  enabled: true
+  by: required
+
+settings:
+  anchor: true
+  default: true
+  required: true
+  sensitive: true
+  type: true
+  escape: true
+  hide-empty: true
+  indent: 2
+  lockfile: false

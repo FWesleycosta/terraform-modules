@@ -1,0 +1,196 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      todos:
+        description: Validar todos os módulos (desmarcado, valida só os alterados em relação à main)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TFLINT_VERSION: v0.64.0
+  TRIVY_VERSION: v0.75.0
+  TERRAFORM_DOCS_VERSION: v0.24.0
+  # sha256 de terraform-docs-v0.24.0-linux-amd64.tar.gz (arquivo .sha256sum da release)
+  TERRAFORM_DOCS_SHA256: 9005daf969de0b50134493a2c00078b49f5f5b39d021cda7c89bf4d4f3d776d3
+
+jobs:
+  detectar:
+    name: Detectar módulos alterados
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      modulos: ${{ steps.detectar.outputs.modulos }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Listar módulos
+        id: detectar
+        env:
+          EVENTO: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          TODOS: ${{ inputs.todos }}
+        run: |
+          set -euo pipefail
+
+          todos_modulos() {
+            find modules -mindepth 1 -maxdepth 1 -type d -exec basename {} \;
+          }
+
+          if [ "$EVENTO" = "workflow_dispatch" ] && [ "$TODOS" = "true" ]; then
+            candidatos="$(todos_modulos)"
+          else
+            if [ "$EVENTO" = "pull_request" ]; then
+              base="origin/$BASE_REF"
+            else
+              base="origin/main"
+            fi
+            alterados="$(git diff --name-only "$base...HEAD")"
+
+            # Mudança na configuração compartilhada afeta todos os módulos.
+            if grep -qE '^(\.tflint\.hcl|\.terraform-docs\.yml|\.github/workflows/ci\.yml)$' <<<"$alterados"; then
+              candidatos="$(todos_modulos)"
+            else
+              candidatos="$(grep -E '^modules/[^/]+/' <<<"$alterados" | cut -d/ -f2 || true)"
+            fi
+          fi
+
+          # Só módulos que ainda existem e com nome válido (evita injeção na matriz).
+          lista=""
+          while IFS= read -r m; do
+            if [ -n "$m" ] && [ -d "modules/$m" ] && [[ "$m" =~ ^[a-z][a-z0-9-]*$ ]]; then
+              lista+="$m"$'\n'
+            fi
+          done <<<"$candidatos"
+
+          json="$(printf '%s' "$lista" | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          echo "Módulos: $json"
+          echo "modulos=$json" >> "$GITHUB_OUTPUT"
+
+  modulo:
+    name: ${{ matrix.modulo }} (terraform ${{ matrix.terraform }})
+    needs: detectar
+    if: needs.detectar.outputs.modulos != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        modulo: ${{ fromJSON(needs.detectar.outputs.modulos) }}
+        # Versão mínima suportada (required_version >= 1.11) e a mais recente.
+        terraform:
+          - "~1.11.0"
+          - latest
+    defaults:
+      run:
+        working-directory: modules/${{ matrix.modulo }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e  # v4.0.1
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform init e validate (módulo)
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: terraform init e validate (exemplos)
+        run: |
+          shopt -s nullglob
+          for exemplo in examples/*/; do
+            echo "::group::$exemplo"
+            terraform -chdir="$exemplo" init -backend=false -input=false
+            terraform -chdir="$exemplo" validate
+            echo "::endgroup::"
+          done
+
+      - name: terraform test
+        run: terraform test
+
+      # Os passos abaixo não dependem da versão do Terraform: rodam só uma vez.
+      - name: Instalar TFLint
+        if: matrix.terraform == 'latest'
+        uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337  # v6.3.2
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+          cache: true
+
+      - name: tflint
+        if: matrix.terraform == 'latest'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
+
+      - name: Instalar Trivy
+        if: matrix.terraform == 'latest'
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567  # v0.3.1
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          cache: true
+
+      - name: trivy config
+        if: matrix.terraform == 'latest'
+        run: trivy config --exit-code 1 --severity HIGH,CRITICAL .
+
+      - name: Instalar terraform-docs
+        if: matrix.terraform == 'latest'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          arquivo="terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz"
+          curl -fsSLo "$arquivo" "https://github.com/terraform-docs/terraform-docs/releases/download/${TERRAFORM_DOCS_VERSION}/${arquivo}"
+          echo "${TERRAFORM_DOCS_SHA256}  ${arquivo}" | sha256sum -c -
+          mkdir -p terraform-docs-bin
+          tar -xzf "$arquivo" -C terraform-docs-bin terraform-docs
+          echo "$RUNNER_TEMP/terraform-docs-bin" >> "$GITHUB_PATH"
+
+      - name: Docs atualizadas (terraform-docs)
+        if: matrix.terraform == 'latest'
+        run: terraform-docs -c "$GITHUB_WORKSPACE/.terraform-docs.yml" --output-check .
+
+  ci-ok:
+    name: ci-ok
+    needs:
+      - detectar
+      - modulo
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Conferir resultado dos jobs
+        env:
+          RESULTADOS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "Resultados: $RESULTADOS"
+          if jq -e 'any(.[]; . == "failure" or . == "cancelled")' <<<"$RESULTADOS" >/dev/null; then
+            echo "::error::Há jobs com falha ou cancelados."
+            exit 1
+          fi
