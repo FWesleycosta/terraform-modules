@@ -71,13 +71,29 @@ jobs:
             fi
           fi
 
-          # Só módulos que ainda existem e com nome válido (evita injeção na matriz).
+          # Só módulos que ainda existem (módulo removido no PR é ignorado).
+          # Nome fora do padrão falha o job, em vez de sumir da matriz em silêncio
+          # (a regex também evita injeção na matriz).
+          padrao='^[a-z][a-z0-9_]*$'
           lista=""
+          invalidos=()
           while IFS= read -r m; do
-            if [ -n "$m" ] && [ -d "modules/$m" ] && [[ "$m" =~ ^[a-z][a-z0-9-]*$ ]]; then
+            if [ -z "$m" ] || [ ! -d "modules/$m" ]; then
+              continue
+            fi
+            if [[ "$m" =~ $padrao ]]; then
               lista+="$m"$'\n'
+            else
+              invalidos+=("$m")
             fi
           done <<<"$candidatos"
+
+          if [ "${#invalidos[@]}" -gt 0 ]; then
+            for m in "${invalidos[@]}"; do
+              printf '::error::Nome de módulo inválido: modules/%q. Use snake_case (%s), com o tipo do recurso principal como nome (ex.: aws_s3_bucket).\n' "$m" "$padrao"
+            done
+            exit 1
+          fi
 
           json="$(printf '%s' "$lista" | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')"
           echo "Módulos: $json"

@@ -45,7 +45,7 @@ Módulo novo começa em `0.1.0` e vira `1.0.0` quando a interface estabiliza.
 ## Como contribuir
 
 - Fluxo trunk-based: branch a partir da `main`, PR de volta para a `main` com squash. Não existe `develop`.
-- Commits no padrão Conventional Commits com o nome do módulo como escopo (ex.: `feat(s3-bucket): ...`).
+- Commits no padrão Conventional Commits com o nome do módulo como escopo (ex.: `feat(aws_s3_bucket): ...`).
 - O `CHANGELOG.md` do módulo é atualizado no mesmo PR da mudança. A tag `<modulo>/vX.Y.Z` é criada na `main` depois do merge.
 
 Estrutura esperada de um módulo:
