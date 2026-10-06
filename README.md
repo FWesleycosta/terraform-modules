@@ -6,7 +6,7 @@ Monorepo de módulos Terraform reutilizáveis. Cada módulo fica em `modules/<no
 
 | Módulo | Descrição | Versão atual |
 |---|---|---|
-| _nenhum módulo publicado ainda_ | | |
+| [aws_s3_bucket](modules/aws_s3_bucket) | Bucket S3 seguro: versionamento, criptografia SSE-KMS, bloqueio de acesso público, TLS obrigatório e lifecycle opcional | _não publicado_ |
 
 ## Como consumir
 
