@@ -6,8 +6,8 @@ Monorepo de módulos Terraform reutilizáveis. Cada módulo fica em `modules/<no
 
 | Módulo | Descrição | Versão atual |
 |---|---|---|
-| [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.0](https://github.com/FWesleycosta/terraform-modules/releases/tag/aws_lambda_layer_version/v0.1.0) |
-| [aws_s3_bucket](modules/aws_s3_bucket) | Bucket S3 seguro: versionamento, criptografia SSE-KMS, bloqueio de acesso público, TLS obrigatório e lifecycle opcional | [0.1.0](https://github.com/FWesleycosta/terraform-modules/releases/tag/aws_s3_bucket/v0.1.0) |
+| [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.0](modules/aws_lambda_layer_version/CHANGELOG.md) |
+| [aws_s3_bucket](modules/aws_s3_bucket) | Bucket S3 seguro: versionamento, criptografia SSE-KMS, bloqueio de acesso público, TLS obrigatório e lifecycle opcional | [0.1.0](modules/aws_s3_bucket/CHANGELOG.md) |
 
 ## Como consumir
 
@@ -41,13 +41,13 @@ Cada módulo segue [SemVer](https://semver.org/lang/pt-BR/) de forma independent
 - **MINOR**: nova variável opcional, novo output, nova funcionalidade.
 - **PATCH**: correção sem mudança de interface.
 
-Módulo novo começa em `0.1.0` e vira `1.0.0` quando a interface estabiliza.
+Módulo novo começa em `0.1.0`. Na série `0.x`, quebra de interface sobe o MINOR. A passagem para `1.0.0` é decisão do responsável pelo repositório.
 
 ## Como contribuir
 
 - Fluxo trunk-based: branch a partir da `main`, PR de volta para a `main` com squash. Não existe `develop`.
 - Commits no padrão Conventional Commits com o nome do módulo como escopo (ex.: `feat(aws_s3_bucket): ...`).
-- O `CHANGELOG.md` do módulo é atualizado no mesmo PR da mudança. A tag `<modulo>/vX.Y.Z` é criada na `main` depois do merge.
+- O `CHANGELOG.md` do módulo, com a data do merge na seção da versão, e a linha dele no índice "Módulos" deste README, com a versão apontando para esse CHANGELOG, são atualizados no mesmo PR da mudança. A tag `<modulo>/vX.Y.Z` é criada na `main` no mesmo dia do merge, seguindo o runbook [Publicar uma versão de módulo](docs/runbooks/publicar-versao-de-modulo.md). Tag publicada nunca é apagada nem movida.
 
 Estrutura esperada de um módulo:
 
@@ -85,4 +85,4 @@ terraform-docs -c .terraform-docs.yml --output-check $m   # só confere
 
 ### CI
 
-O workflow `.github/workflows/ci.yml` roda em todo PR para a `main`. Ele valida apenas os módulos alterados (ou todos, se mudar a configuração compartilhada da raiz) com Terraform 1.11 (versão mínima suportada) e com a versão mais recente. O check `ci-ok` consolida o resultado e é o que deve ser exigido na proteção da branch.
+O workflow `.github/workflows/ci.yml` roda em todo PR para a `main` e também pode ser disparado à mão (`workflow_dispatch`). Ele valida apenas os módulos alterados (ou todos, se mudar a configuração compartilhada da raiz) com Terraform 1.11 (versão mínima suportada) e com a versão mais recente. O check `ci-ok` consolida o resultado. O merge com o `ci-ok` vermelho é proibido por convenção. Como a `main` não tem proteção de branch, o GitHub não bloqueia esse merge: confira o `ci-ok` antes de fazer o merge. Os detalhes estão em [CI e release dos módulos](docs/pipelines/ci-e-release-de-modulos.md).
