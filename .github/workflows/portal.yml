@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: FWesleycosta/portal-docs@5a17c118e54dfbee110eac7afe40f43cad53fe70 # v1.0.0
+      - uses: FWesleycosta/portal-docs@36bdab08018ef6d3446a1404fa7fa28f92b1e66b # v1.0.1
         with:
           incluir: |
             modules/*/README.md
