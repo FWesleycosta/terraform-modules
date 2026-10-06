@@ -48,6 +48,7 @@ Módulo novo começa em `0.1.0`. Na série `0.x`, quebra de interface sobe o MIN
 - Fluxo trunk-based: branch a partir da `main`, PR de volta para a `main` com squash. Não existe `develop`.
 - Commits no padrão Conventional Commits com o nome do módulo como escopo (ex.: `feat(aws_s3_bucket): ...`).
 - O `CHANGELOG.md` do módulo, com a data do merge na seção da versão, e a linha dele no índice "Módulos" deste README, com a versão apontando para esse CHANGELOG, são atualizados no mesmo PR da mudança. A tag `<modulo>/vX.Y.Z` é criada na `main` no mesmo dia do merge, seguindo o runbook [Publicar uma versão de módulo](docs/runbooks/publicar-versao-de-modulo.md). Tag publicada nunca é apagada nem movida.
+- A arquitetura do repositório, o pipeline e os runbooks estão indexados em [docs/README.md](docs/README.md).
 
 Estrutura esperada de um módulo:
 
