@@ -1,51 +1,17 @@
 # Bucket com chave KMS gerenciada pelo cliente, policy adicional e regras de lifecycle.
 
-provider "aws" {}
-
-data "aws_caller_identity" "current" {}
-
-data "aws_partition" "current" {}
-
-data "aws_iam_policy_document" "kms" {
-  # Em policy de chave KMS, "*" em resources significa a própria chave.
-  statement {
-    sid       = "AdministracaoPelaConta"
-    actions   = ["kms:*"]
-    resources = ["*"]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-  }
-}
-
 resource "aws_kms_key" "this" {
   description             = "Chave do bucket de exemplo do módulo aws_s3_bucket"
   enable_key_rotation     = true
   deletion_window_in_days = 30
   policy                  = data.aws_iam_policy_document.kms.json
-}
-
-data "aws_iam_policy_document" "leitura" {
-  statement {
-    sid     = "LeituraPelaConta"
-    actions = ["s3:GetObject"]
-    resources = [
-      "arn:${data.aws_partition.current.partition}:s3:::exemplo-completo-aws-s3-bucket/*",
-    ]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-  }
+  tags                    = var.tags
 }
 
 module "aws_s3_bucket" {
   source = "../.."
 
-  name = "exemplo-completo-aws-s3-bucket"
+  name = local.bucket_name
 
   encryption = {
     sse_algorithm = "aws:kms"
@@ -95,17 +61,5 @@ module "aws_s3_bucket" {
     },
   ]
 
-  tags = {
-    Environment = "exemplo"
-  }
-}
-
-output "bucket_arn" {
-  description = "ARN do bucket criado."
-  value       = module.aws_s3_bucket.arn
-}
-
-output "kms_key_arn" {
-  description = "ARN da chave KMS usada no bucket."
-  value       = module.aws_s3_bucket.kms_key_arn
+  tags = var.tags
 }
