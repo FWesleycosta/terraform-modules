@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terraform-modules
+  title: Terraform Modules
+  description: "Monorepo de módulos Terraform reutilizáveis para AWS, com versão por módulo: aws_s3_bucket e aws_lambda_layer_version."
+  tags:
+    - terraform
+    - aws
+  annotations:
+    github.com/project-slug: FWesleycosta/terraform-modules
+spec:
+  type: library
+  lifecycle: experimental
+  owner: fwesleycosta
+  system: iac
