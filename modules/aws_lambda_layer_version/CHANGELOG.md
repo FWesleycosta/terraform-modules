@@ -6,6 +6,12 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não publicado]
 
+## [0.1.1] - 2026-11-24
+
+### Corrigido
+
+- Provider AWS limitado a `>= 6.0, < 7.0`, para que uma versão MAJOR nova, com possíveis quebras, não seja aceita sem revisão do módulo.
+
 ## [0.1.0] - 2026-10-06
 
 ### Adicionado

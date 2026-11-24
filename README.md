@@ -6,7 +6,7 @@ Monorepo de módulos Terraform reutilizáveis. Cada módulo fica em `modules/<no
 
 | Módulo | Descrição | Versão atual |
 |---|---|---|
-| [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.0](modules/aws_lambda_layer_version/CHANGELOG.md) |
+| [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.1](modules/aws_lambda_layer_version/CHANGELOG.md) |
 | [aws_s3_bucket](modules/aws_s3_bucket) | Bucket S3 seguro: versionamento, criptografia SSE-KMS, bloqueio de acesso público, TLS obrigatório e lifecycle opcional | [0.1.0](modules/aws_s3_bucket/CHANGELOG.md) |
 
 ## Como consumir
@@ -30,7 +30,7 @@ source = "git::https://github.com/FWesleycosta/terraform-modules.git//modules/<m
 Requisitos para quem consome:
 
 - Terraform `>= 1.11`.
-- Os módulos declaram providers só com limite inferior (ex.: `>= 6.0`). Quem fixa a versão exata dos providers, e versiona o `.terraform.lock.hcl`, é o módulo raiz que consome.
+- Os módulos declaram providers com limite inferior e teto na próxima versão MAJOR (ex.: `>= 6.0, < 7.0`), para que uma MAJOR nova só seja aceita depois de revisar o módulo. Quem fixa a versão exata dos providers, e versiona o `.terraform.lock.hcl`, é o módulo raiz que consome.
 - Os módulos não declaram blocos `provider`: a configuração do provider (região, credenciais, aliases) é do consumidor.
 
 ## Versionamento
