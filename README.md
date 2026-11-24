@@ -6,7 +6,7 @@ Monorepo de módulos Terraform reutilizáveis. Cada módulo fica em `modules/<no
 
 | Módulo | Descrição | Versão atual |
 |---|---|---|
-| [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.0](modules/aws_lambda_layer_version/CHANGELOG.md) |
+| [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.1](modules/aws_lambda_layer_version/CHANGELOG.md) |
 | [aws_s3_bucket](modules/aws_s3_bucket) | Bucket S3 seguro: versionamento, criptografia SSE-KMS, bloqueio de acesso público, TLS obrigatório e lifecycle opcional | [0.1.1](modules/aws_s3_bucket/CHANGELOG.md) |
 
 ## Como consumir

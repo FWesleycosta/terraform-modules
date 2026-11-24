@@ -5,7 +5,7 @@ terraform {
     aws = {
       source = "hashicorp/aws"
       # O módulo aws_s3_bucket usado no exemplo exige >= 6.40.
-      version = ">= 6.40"
+      version = ">= 6.40, < 7.0"
     }
     archive = {
       source  = "hashicorp/archive"
