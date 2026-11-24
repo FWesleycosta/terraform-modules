@@ -1,15 +1,16 @@
 # Runbook: publicar uma versão de módulo
 
 > [!NOTE]
-> Quando usar: um PR que altera `modules/<modulo>/` acabou de entrar na `main` e o módulo precisa de uma versão nova. A visão geral do fluxo está em [Pipeline: CI e release dos módulos](../pipelines/ci-e-release-de-modulos.md).
+> Quando usar: um PR que altera `modules/<modulo>/` acabou de entrar na `main` e o módulo precisa de uma versão nova. A visão geral do fluxo está em [Pipeline: CI, release dos módulos e portal](../pipelines/ci-e-release-de-modulos.md).
 
 ## Antes de começar
 
 - **Quem executa:** só o responsável pelo repositório (@FWesleycosta) cria tags e releases.
 - **Acessos necessários:**
   - permissão de escrita no repositório. Ele é público, então qualquer pessoa lê e clona, mas criar tag e release exige escrita;
-  - GitHub CLI (`gh`) autenticado numa conta com essa permissão de escrita;
-  - Git configurado para assinar tags (`tag.gpgSign`). As tags publicadas até hoje são anotadas e assinadas com chave SSH.
+  - GitHub CLI (`gh`) autenticado numa conta com essa permissão;
+  - Git configurado para assinar tags com chave SSH, como todas as tags publicadas até hoje. Confira com `git config --get tag.gpgSign` (esperado: `true`) e `git config --get gpg.format` (esperado: `ssh`).
+  - Um shell POSIX, como o Git Bash no Windows: os comandos abaixo usam aspas simples e sintaxe de `sh`.
 - **Impacto esperado:** nenhum sobre quem já consome o módulo. Cada consumidor fixa uma tag no `?ref=` e só recebe a versão nova quando trocar essa referência.
 - **Quando executar:** no mesmo dia do merge.
 - **O que já precisa estar na `main`,** porque entra no próprio PR do módulo:
@@ -21,7 +22,7 @@
 
 ## Diagnóstico: confirmar a versão
 
-O tipo de versão sai dos Conventional Commits que tocaram o módulo desde a última tag dele. Com o squash, cada PR é um commit, e a mensagem é o título do PR. O diagrama mostra a decisão. Repare que, na série `0.x`, uma quebra de interface sobe o MINOR, e não o MAJOR. A versão escolhida precisa bater com a que já está registrada no CHANGELOG.
+O tipo de versão sai dos Conventional Commits que tocaram o módulo desde a última tag dele. Com o squash, cada PR é um commit, e a mensagem é o título do PR. O diagrama mostra a decisão. Repare que, na série `0.x`, uma quebra de interface sobe o MINOR, e não o MAJOR. A versão escolhida precisa bater com a que já está no CHANGELOG.
 
 ```mermaid
 ---
@@ -47,7 +48,7 @@ flowchart TD
 
    ```sh
    git switch main
-   git pull
+   git pull --ff-only
    ```
 
 2. Descubra a última tag do módulo:
@@ -56,7 +57,7 @@ flowchart TD
    git describe --tags --abbrev=0 --match '<modulo>/v[0-9]*'
    ```
 
-   Esperado: algo como `aws_s3_bucket/v0.1.0`. Se o comando falhar, o módulo nunca foi publicado. Considere a versão base `0.0.0` e, no passo seguinte, liste todos os commits do módulo (`git log --format='%s%n%b' -- modules/<modulo>`).
+   Esperado: algo como `aws_s3_bucket/v0.1.1`. Se o comando falhar com `No names found`, o módulo nunca foi publicado (caso do `proxmox_virtual_environment_vm` até a primeira tag). Considere a versão base `0.0.0` e, no passo seguinte, liste todos os commits do módulo com `git log --format='%s%n%b' -- modules/<modulo>`.
 
 3. Liste os commits do módulo desde essa tag:
 
@@ -65,21 +66,29 @@ flowchart TD
    ```
 
 4. Aplique a decisão do diagrama sobre a versão base:
-   - Algum commit com `!` depois do tipo (ex.: `feat(<modulo>)!:`) ou uma linha `BREAKING CHANGE:` no corpo → MAJOR (`X+1.0.0`). Na série `0.x`, a quebra de interface sobe o MINOR (`0.Y+1.0`). A passagem para `1.0.0` não sai dos commits: é decisão do responsável.
+   - Algum commit com `!` depois do tipo (ex.: `feat(<modulo>)!:`) ou uma linha `BREAKING CHANGE:` no corpo → MAJOR (`X+1.0.0`). Na série `0.x`, a quebra sobe o MINOR (`0.Y+1.0`). A passagem para `1.0.0` não sai dos commits: é decisão do responsável.
    - Senão, algum `feat` → MINOR (`X.Y+1.0`).
    - Senão, algum `fix` ou `perf` → PATCH (`X.Y.Z+1`).
-   - Só `docs`, `chore`, `ci` ou `test` → não publique versão.
+   - Nenhum `feat`, `fix`, `perf` nem quebra (só `docs`, `chore`, `ci`, `test`, `refactor`, `style` ou `build`) → não publique versão.
 
-   Um módulo novo, sem tag e com um `feat`, sai como `0.1.0`, que é a versão inicial definida no README.
+   Um módulo novo, sem tag e com um `feat`, sai como `0.1.0`, a versão inicial definida no README.
 
-5. Compare com a seção mais recente do `CHANGELOG.md` do módulo. Se não bater, pare: corrija o CHANGELOG (e o índice do README) num PR antes de criar a tag.
+5. Compare com a seção mais recente do `CHANGELOG.md` do módulo, inclusive a data, que deve ser a do merge. Se não bater, pare: corrija o CHANGELOG (e o índice do README) num PR `docs(<modulo>): ...` e só crie a tag depois do merge dele, no commit do PR original do módulo.
+
+6. Anote o commit do PR do módulo, que é onde a tag vai ficar:
+
+   ```sh
+   git log --oneline -5 -- modules/<modulo>
+   ```
+
+   Esperado: na primeira linha, o commit `tipo(<modulo>): ... (#N)` do merge. O hash no início da linha é o `<commit>` da publicação.
 
 ## Publicação
 
-1. Crie a tag anotada no commit atual da `main`:
+1. Crie a tag anotada no commit do PR do módulo, anotado no passo 6 do diagnóstico:
 
    ```sh
-   git tag -a <modulo>/vX.Y.Z -m "<modulo> vX.Y.Z"
+   git tag -a <modulo>/vX.Y.Z <commit> -m "<modulo> vX.Y.Z"
    ```
 
 2. Confira se a tag aponta para o commit do PR do módulo:
@@ -88,7 +97,13 @@ flowchart TD
    git log -1 --format='%h %s' <modulo>/vX.Y.Z
    ```
 
-   Esperado: o commit `tipo(<modulo>): ... (#N)` do merge. Se apontar para outro commit, apague a tag local com `git tag -d <modulo>/vX.Y.Z` e refaça. Enquanto a tag não foi enviada, ela ainda não está publicada.
+   Esperado: o commit `tipo(<modulo>): ... (#N)` do merge. Confira também a assinatura:
+
+   ```sh
+   git cat-file tag <modulo>/vX.Y.Z
+   ```
+
+   Esperado: um bloco `-----BEGIN SSH SIGNATURE-----` no fim. Se a tag apontar para outro commit ou não estiver assinada, apague a tag local com `git tag -d <modulo>/vX.Y.Z` e refaça. Enquanto a tag não foi enviada, ela ainda não está publicada.
 
 3. Envie a tag:
 
@@ -96,7 +111,7 @@ flowchart TD
    git push origin <modulo>/vX.Y.Z
    ```
 
-4. Copie a seção da versão no `CHANGELOG.md` do módulo para um arquivo temporário fora do repositório. A seção vai do título `## [X.Y.Z] - ...`, sem incluir o título, até antes do título da versão seguinte.
+4. Copie a seção da versão no `CHANGELOG.md` do módulo para um arquivo temporário fora do repositório. A seção vai da linha seguinte ao título `## [X.Y.Z] - ...` até antes do título da versão anterior.
 
 5. Crie a release no GitHub com essas notas:
 
@@ -124,6 +139,14 @@ flowchart TD
 
 3. No índice do README da raiz, a coluna "Versão atual" do módulo mostra a versão nova, com link para o `CHANGELOG.md` do módulo.
 
+4. O workflow `portal` do merge terminou com sucesso, porque o índice do README mudou:
+
+   ```sh
+   gh run list --workflow portal --commit <commit-completo>
+   ```
+
+   O `--commit` pede o hash completo, que sai de `git rev-parse <commit>`. Esperado: uma linha com `completed success`. Se terminou em `failure`, rode de novo com `gh run rerun <id> --failed`, em que `<id>` é o número da coluna ID da mesma saída. A falha do portal não afeta a tag nem a release.
+
 ## Se não resolver
 
 - **`gh release create` falhou depois do `git push` da tag:** a tag já está publicada e não pode ser recriada. Corrija a causa (autenticação, arquivo de notas) e rode o passo 5 de novo.
@@ -140,6 +163,5 @@ flowchart TD
 
 ## Pendências
 
-Nenhuma decisão em aberto. Fica uma nota de manutenção:
-
-- O script que calcula a próxima versão será versionado no repositório num PR separado. Quando ele entrar, troque os passos 2 a 4 do diagnóstico pela chamada ao script e confira se ele segue a regra da série `0.x` (quebra de interface sobe o MINOR).
+- [A CONFIRMAR: se a diferença entre o `required_version >= 1.9` do módulo Proxmox e a versão mínima testada no CI (1.11) precisa ser resolvida antes de publicar a 0.1.0 dele. Detalhes em [Pendências da arquitetura](../arquitetura/monorepo-de-modulos.md#pendências).]
+- Nota de manutenção: se um script que calcula a próxima versão for versionado no repositório, troque os passos 2 a 4 do diagnóstico pela chamada a ele e confira se segue a regra da série `0.x`.
