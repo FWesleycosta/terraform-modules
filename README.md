@@ -8,6 +8,7 @@ Monorepo de módulos Terraform reutilizáveis. Cada módulo fica em `modules/<no
 |---|---|---|
 | [aws_lambda_layer_version](modules/aws_lambda_layer_version) | Versão de Lambda layer a partir de pacote local ou no S3, com validação das regras da API | [0.1.1](modules/aws_lambda_layer_version/CHANGELOG.md) |
 | [aws_s3_bucket](modules/aws_s3_bucket) | Bucket S3 seguro: versionamento, criptografia SSE-KMS, bloqueio de acesso público, TLS obrigatório e lifecycle opcional | [0.1.1](modules/aws_s3_bucket/CHANGELOG.md) |
+| [proxmox_virtual_environment_vm](modules/proxmox_virtual_environment_vm) | VM no Proxmox VE por clone completo de template com cloud-init: DHCP ou IP fixo, DNS opcional, acesso por chave SSH e guest agent opcional | [0.1.0](modules/proxmox_virtual_environment_vm/CHANGELOG.md) |
 
 ## Como consumir
 
