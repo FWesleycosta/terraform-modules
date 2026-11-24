@@ -50,7 +50,7 @@ Referência do conteúdo do contêiner Repositório Git.
 
 | Conteúdo | Para que serve | Tecnologia | Onde está |
 |---|---|---|---|
-| `aws_s3_bucket` | Módulo de bucket S3 seguro por padrão, com lifecycle opcional | Módulo Terraform, provider `hashicorp/aws` `>= 6.40` | `modules/aws_s3_bucket/` |
+| `aws_s3_bucket` | Módulo de bucket S3 seguro por padrão, com lifecycle opcional | Módulo Terraform, provider `hashicorp/aws` `>= 6.40, < 7.0` | `modules/aws_s3_bucket/` |
 | `aws_lambda_layer_version` | Módulo de versão de Lambda layer a partir de um pacote local (`filename`) ou no S3 (`s3_object`) | Módulo Terraform, provider `hashicorp/aws` `>= 6.0` | `modules/aws_lambda_layer_version/` |
 | Configuração compartilhada | Regras de lint e formato do README gerado, iguais para todos os módulos. Mudar um desses arquivos, ou o `ci.yml`, faz o CI validar todos os módulos | TFLint (preset `recommended` e plugin AWS 0.49.0), terraform-docs | `.tflint.hcl`, `.terraform-docs.yml` |
 | Tags por módulo | Marcam cada versão publicada. Uma tag publicada nunca é apagada nem movida | Git (tags anotadas) | Tags `<modulo>/vX.Y.Z`; `README.md`, linha 50 |
