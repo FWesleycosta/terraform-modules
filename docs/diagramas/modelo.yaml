@@ -1,0 +1,87 @@
+# Modelo C4 do terraform-modules: fonte dos diagramas desta pasta.
+# Os .drawio.svg são derivados. Para mudar um diagrama, edite este arquivo e gere de novo, a partir da raiz:
+#   py ~/.claude/skills/documentacao-tecnica/scripts/gerar-drawio-modelo.py docs/diagramas/modelo.yaml --exportar
+# Regras: só nomes lógicos (nunca conta, IP, token ou segredo); `origem` é o arquivo que prova o elemento.
+sistema:
+  id: terraform-modules
+  nome: terraform-modules
+  descricao: Monorepo de módulos Terraform com versão por módulo
+  origem: catalog-info.yaml
+
+pessoas:
+  - { id: responsavel, nome: Responsável, descricao: Mantém os módulos e publica as versões }
+  - { id: leitor, nome: Leitor da documentação, descricao: Avalia ou consome os módulos }
+
+externos:
+  - { id: dependabot, nome: Dependabot, descricao: Atualiza toda semana os SHAs das GitHub Actions, tipo: sistema, origem: .github/dependabot.yml }
+  - { id: registry, nome: Terraform Registry, descricao: "Distribui os providers hashicorp/aws, hashicorp/archive e bpg/proxmox", tipo: sistema, origem: modules/proxmox_virtual_environment_vm/versions.tf }
+  - { id: consumidores, nome: Módulos raiz consumidores, descricao: Fixam um módulo pela tag e configuram o provider, tipo: sistema, origem: README.md }
+  - { id: aws, nome: AWS, descricao: Onde os consumidores criam buckets S3 e Lambda layers, tipo: sistema, origem: modules/aws_s3_bucket/main.tf }
+  - { id: proxmox, nome: Proxmox VE, descricao: Onde os consumidores criam VMs por clone de template, tipo: sistema, origem: modules/proxmox_virtual_environment_vm/main.tf }
+
+conteineres:
+  - id: repo
+    nome: Repositório Git
+    descricao: Guarda os módulos, a configuração compartilhada, a documentação e as tags
+    tecnologia: Git, GitHub (público)
+    tipo: banco
+    origem: README.md
+  - id: ci
+    nome: Workflow ci
+    descricao: Valida os módulos alterados em cada PR e consolida o resultado no check ci-ok
+    tecnologia: GitHub Actions, Terraform, TFLint, Trivy, terraform-docs
+    origem: .github/workflows/ci.yml
+  - id: portal
+    nome: Workflow portal
+    descricao: Gera a página única do portal a partir do Markdown e a publica
+    tecnologia: GitHub Actions, portal-docs
+    origem: .github/workflows/portal.yml
+  - id: pages
+    nome: Portal de documentação
+    descricao: Página única com o README, a docs/ e os READMEs dos módulos
+    tecnologia: GitHub Pages
+    origem: .github/workflows/portal.yml
+  - id: releases
+    nome: GitHub Releases
+    descricao: Uma release por tag de módulo, com as notas do CHANGELOG
+    tecnologia: GitHub Releases
+    tipo: banco
+    origem: modules/aws_s3_bucket/CHANGELOG.md
+
+relacoes:
+  - { id: mantem, de: responsavel, para: repo, rotulo: "Abre PRs, faz o merge por squash e envia as tags", tecnologia: "GitHub, git tag -a" }
+  - { id: release, de: responsavel, para: releases, rotulo: Publica a release de cada tag, tecnologia: gh release create --verify-tag }
+  - { id: dependabot-pr, de: dependabot, para: repo, rotulo: Abre PRs que atualizam as Actions, tecnologia: GitHub }
+  - { id: dispara-ci, de: repo, para: ci, rotulo: "Dispara a validação de cada PR", tecnologia: evento pull_request }
+  - { id: ci-providers, de: ci, para: registry, rotulo: Baixa os providers, tecnologia: terraform init -backend=false }
+  - { id: dispara-portal, de: repo, para: portal, rotulo: "Dispara a publicação quando um merge muda a documentação", tecnologia: evento push na main }
+  - { id: publica-portal, de: portal, para: pages, rotulo: Publica a página, tecnologia: deploy-pages }
+  - { id: le, de: leitor, para: pages, rotulo: Lê a documentação, tecnologia: HTTPS }
+  - { id: baixa-modulo, de: consumidores, para: repo, rotulo: Baixa o módulo pela tag, tecnologia: Git por SSH ou HTTPS }
+  - { id: consumidor-providers, de: consumidores, para: registry, rotulo: Baixa os providers, tecnologia: terraform init }
+  - { id: cria-aws, de: consumidores, para: aws, rotulo: Cria buckets S3 e Lambda layers, tecnologia: API da AWS }
+  - { id: cria-proxmox, de: consumidores, para: proxmox, rotulo: Cria VMs por clone de template, tecnologia: API do Proxmox VE }
+
+views:
+  - id: contexto
+    tipo: contexto
+    titulo: "[Contexto] terraform-modules"
+    arquivo: c4-contexto
+    layout:
+      - [responsavel, ~, ~, dependabot]
+      - [leitor, terraform-modules, registry, ~]
+      - [~, consumidores, ~, ~]
+      - [aws, proxmox, ~, ~]
+    setas:
+      - { de: responsavel, para: terraform-modules, rotulo: "Publica as versões em" }
+      - { de: dependabot, para: terraform-modules, rotulo: "Atualiza as Actions em" }
+  - id: conteineres
+    tipo: conteineres
+    titulo: "[Contêineres] terraform-modules"
+    arquivo: c4-conteineres
+    layout:
+      - [responsavel, ~, dependabot, ~, leitor]
+      - [releases, repo, ~, portal, pages]
+      - [~, ~, ci, ~, ~]
+      - [registry, consumidores, ~, aws, ~]
+      - [~, proxmox, ~, ~, ~]
